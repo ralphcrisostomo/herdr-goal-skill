@@ -70,9 +70,11 @@ Send the brief as one `pane run` call; flatten it to a single line (use `;` betw
 Track your leads in a list (pane ID, workspace ID, workstream, last status). A lead is **completed** only when its status is `done`, or `idle` AFTER you have seen it `working` — a boot-time `idle` is not completion. Round-robin with short waits so one slow lead never starves a blocked one:
 
 ```bash
-herdr wait agent-status <pane-id> --status done --timeout 120000   # per lead, in rotation
-herdr pane get <pane-id>                                           # on timeout: check actual status
+herdr pane get <pane-id>                                           # per lead, in rotation — the reliable check
+herdr wait agent-status <pane-id> --status done --timeout 120000   # only to block until the NEXT transition
 ```
+
+**Poll with `pane get`, not `wait --status done`.** `done` and `idle` are one state differing only in whether the result has been seen, and a lead that completes while you are looking at its tab lands on `idle` directly — so a `wait` for `done` blocks until timeout on an agent that already finished. Treat `idle`-after-`working` and `done` identically as completed. Keep polling in rotation until every lead is complete; never end the turn with leads still running and hand monitoring back to the user.
 
 - Completed (per rule above) → go to step 4.
 - `blocked` → `pane read --source recent-unwrapped --lines 120`, answer via `pane run`. Escalate to the user only for decisions a lead can't make (scope changes, destructive actions). A blocked lead jumps the rotation — answer it before any completion cleanup, and confirm it returns to `working` afterward.
