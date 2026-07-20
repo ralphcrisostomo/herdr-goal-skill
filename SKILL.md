@@ -22,6 +22,10 @@ Precondition: `test "${HERDR_ENV:-}" = 1` — if it fails, say so and stop.
 
 ### 2. Spawn one lead per workstream
 
+Check every target repo is a Git repo before spawning — `worktree create` needs one. If a repo is uninitialized, `git init` it, confirm what belongs in `.gitignore` (generated output, scraped data, `node_modules`), and make an initial commit; that commit is the pre-work SHA for the review gate. Tell the user before initializing.
+
+A worktree checkout excludes gitignored paths, so a lead gets no `node_modules` and no generated data. Put the install command and the absolute path to any generated fixtures in the main checkout into the brief.
+
 Discover current syntax with `herdr worktree` (bare group prints usage; never probe `worktree create` with no args — it executes). If the printed usage differs from the commands below, the printed usage wins. Then:
 
 ```bash
@@ -29,6 +33,8 @@ herdr worktree create --cwd <repo> --branch herd/<workstream> --label "<workstre
 ```
 
 Parse the returned workspace and pane IDs from the JSON — never construct them.
+
+If the workstream must land on a branch already checked out elsewhere (e.g. merging finished work into `main` from the primary checkout) — `worktree create` fails, git refuses a second checkout of the same branch — skip it and split a sibling pane in your own workspace instead: `herdr pane split --current --direction right --no-focus`, same cwd as the branch's existing checkout. This lead has no linked workspace; step 4 cleans it up differently.
 
 **Pick each lead's model by workstream complexity** — don't run every lead on the most expensive tier:
 
@@ -80,13 +86,21 @@ herdr pane get <pane-id>                                           # on timeout:
 herdr pane read <pane-id> --source recent-unwrapped --lines 200   # capture the summary
 ```
 
-Confirm the branch is committed (ask the lead to `git status` if the summary doesn't say). An uncommitted worktree removed is lost work. Then:
+Confirm the branch is committed (ask the lead to `git status` if the summary doesn't say). An uncommitted worktree removed is lost work.
+
+If a review gate follows (see the user's CLAUDE.md), keep the lead's pane alive until the reviewer returns clean. Review rounds are iterative, and a lead that still holds its own context fixes its own findings far more cheaply than a fresh one re-derives them — send each round's findings via `pane run`. Hand findings over as a file written into the worktree rather than as one giant `pane run` line; per-item file:line detail does not survive being flattened into a single argument.
+
+When the work is genuinely finished:
 
 ```bash
 herdr worktree remove --workspace <lead-workspace-id> --json
 ```
 
 The branch survives worktree removal. Only remove workspaces/panes this orchestration created.
+
+A lead spawned as a sibling pane (step 2's already-checked-out-branch case) has no linked workspace — `worktree remove` doesn't apply. Close it directly instead: `herdr pane close <pane-id>`. This is easy to forget precisely because it doesn't fit the worktree-remove muscle memory — after reading a sibling-pane lead's final summary, closing its pane is the explicit next action, not an implicit one.
+
+To reattach a branch whose worktree was already removed, use `worktree create --branch <existing-branch>` — it checks the branch out again. `worktree open --branch` fails with `worktree_not_found`; it opens an existing worktree directory, not a bare branch.
 
 ### 5. Final report
 
