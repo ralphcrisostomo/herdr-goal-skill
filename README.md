@@ -2,7 +2,7 @@
 
 A Claude Code skill that orchestrates a large multi-part objective across parallel lead agents inside a [Herdr](https://herdr.dev) session.
 
-`/herdr-goal <objective>` decomposes the goal into independent workstreams, spawns one Claude Code lead per workstream (each in its own git worktree + Herdr pane, model picked by task complexity), monitors them until done, cleans up the worktrees, and reports back. It also updates its own SKILL.md with lessons learned after each run.
+`/herdr-goal <objective>` decomposes the goal into independent workstreams, spawns one Claude Code lead per workstream (each in its own git worktree + Herdr pane, model picked by task complexity), monitors them until done, gates the merged result for the seam defects no per-branch review can see, cleans up the worktrees, and reports back. It also updates its own SKILL.md with lessons learned after each run.
 
 ## Requirements
 
