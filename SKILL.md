@@ -63,6 +63,8 @@ herdr wait agent-status <pane-id> --status working --timeout 30000
 
 Send the brief as one `pane run` call; flatten it to a single line (use `;` between points) rather than fighting shell-quoted newlines.
 
+**Never echo secrets out of a pane.** Leads routinely touch `.env` files, terraform outputs, and cookie jars — a `pane read` can surface an API key, and anything you quote back lands in your own transcript and the user's scrollback. Point a lead at a credentials *path* rather than a value, and when reporting, name the file or say the variable is present; never print the value. If you must confirm a credential, confirm it is non-empty, not what it is.
+
 **Token hygiene:** a lead starts with empty context — the brief is its entire task spec, so make it complete up front (acceptance criteria, constraints, file hints); a well-specified first turn beats drip-feeding follow-ups. On your side, keep pane reads bounded (`--lines 120`–`200`, never unbounded scrollback) — you only need status and summaries, not lead transcripts, in your own context.
 
 ### 3. Monitor until done
@@ -87,6 +89,10 @@ herdr wait agent-status <pane-id> --status done --timeout 120000   # only to blo
 ```bash
 herdr pane read <pane-id> --source recent-unwrapped --lines 200   # capture the summary
 ```
+
+**A completion signal is not a success signal.** The status goes to `done` whether the lead shipped the work, refused it, or shipped something that doesn't do what it claims. Its summary is a *claim*, not evidence — never relay one as fact you have checked. Verify against artifacts you read yourself: `git log`/`git diff --stat` for the commit, a clean `git status` for the tree, the test command's own output. A lead reporting "all tests pass" after running a wrapper that swallowed the real exit code is the same event as one that genuinely passed.
+
+Green tests prove even less than they look like they do when the lead wrote both the code and the fixtures: it will reach for input shapes its implementation already handles. Where the work has an external contract — a field another service reads, a data shape a scraper actually emits, a row another system writes — a passing suite is not evidence the contract holds. Say so in the brief, and make the review gate probe the real shapes rather than re-run the lead's own tests.
 
 Confirm the branch is committed (ask the lead to `git status` if the summary doesn't say). An uncommitted worktree removed is lost work.
 
@@ -126,3 +132,5 @@ After the final report, review the run for surprises: CLI behavior that differed
 | "I'll just run the tests here" | Verification is the lead's job, in its worktree. |
 | "I'll skip the worktree, it's read-only work" | Leads always get a worktree. Uniform topology, zero conflicts. |
 | "The lead finished, I'll clean up its loose ends" | Send a follow-up via `pane run` instead. |
+| "The lead says it's done and tests pass" | That's a claim. Read `git log`, the diff, and the test output yourself before you repeat it. |
+| "Both leads are still running, I'll report back" | Keep polling. The turn ends when the work does, not when you run out of things to say. |
