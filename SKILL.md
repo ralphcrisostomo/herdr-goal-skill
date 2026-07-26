@@ -55,6 +55,10 @@ Expect several. In one run the leads and reviewers found six, every one traceabl
 
 Write the contract expecting this, and re-read it for these shapes before spawning: every limit against every pass it feeds, every equivalence against every path, every value class against every consumer.
 
+**A contract decision that rests on a fact about live data must be MEASURED against live data before you write it, not reasoned from the schema.** In one run the contract ruled a whole remedy out of scope ("rows without this timestamp have no recoverable time, so the fallback is permanent by design") — every lead implemented that faithfully, every gate passed, and the shipped result fixed a minority of the rows the owner cared about, because the truthful timestamp was sitting on a sibling field the read path simply never projected. The leads could not have caught it: the defect was in the premise, not the code. One read-only query before spawning would have.
+
+The mirror-image error is sizing that measurement off *stored* data when a read-time filter decides what renders. Counting rows in the stored list gave "11 rows affected"; the list is append-only and the read path drops soft-deleted entries, so exactly **1** was visible. The fix was right and the number was inflated 11x — a number you put in front of the owner to justify scope. Measure what actually reaches the screen: apply the same filters the read path applies, then count.
+
 ### 2. Spawn one lead per workstream
 
 Check every target repo is a Git repo before spawning — `worktree create` needs one. If a repo is uninitialized, `git init` it, confirm what belongs in `.gitignore` (generated output, scraped data, `node_modules`), and make an initial commit; that commit is the pre-work SHA for the review gate. Tell the user before initializing.
@@ -203,7 +207,9 @@ So after the branches merge and before declaring done, run one more review over 
 - a convention or fix that landed on the base branch mid-run and needs applying to each lead's new code, not just kept alongside it
 - behaviour that only appears once real data from one half reaches the other half's rendering
 
-Tell the reviewer which halves were built in isolation and that the merged result has never been reviewed — otherwise it re-reviews each half and reports what the per-branch gates already found.
+Tell the reviewer which halves were built in isolation and that the merged result has never been reviewed — otherwise it re-reviews each half and reports what the per-branch gates already found. **Check that your reviewer can actually accept that framing before you brief it.** `/codex:review` no longer takes custom focus text — it maps to the built-in reviewer and exits 1 pointing at `/codex:adversarial-review` — so a brief that says "tell the reviewer X" through `codex:review` cannot be delivered, and a lead that quietly drops the framing hands you back a re-review of each half. Route framed reviews through `codex:adversarial-review` at the same base, then run the plain reviewer as a second independent pass; two differently-instrumented rounds beat one.
+
+And do not expect any reviewer to audit COMMENT accuracy. In one run both Codex modes returned clean on a diff in which three comments asserted a premise a fourth comment in the same file refuted with file:line evidence — the contradiction was introduced when the lead verified a claim *after* writing the comments that depended on it. Only an orchestrator read caught it, twice in the same run. A stale ceiling comment is not cosmetic in a repo where the next session reasons from it: read the diff's comments yourself against the diff's own findings.
 
 This gate earns its cost. In one run the per-branch reviews were clean — one lead had iterated through seven rounds — and the merged-result pass still found two Criticals: a write-path precondition one side established and the other never learned (breaking ~46% of rows), and a client-supplied field used as a storage key, which allowed any authenticated user to overwrite another post's protected data and bypass the moderator-only path built for exactly that. Neither is visible from one side. Also run the per-repo reviews **in parallel with** the cross-repo seam review rather than after — they find disjoint classes, and the seam findings are usually the ones that change the merge decision.
 
